@@ -53,6 +53,8 @@ qsw_reshape = qsw.reshape(nt, nz*nx)
 
 qlw_corr = np.empty((nx*nz))
 qsw_corr = np.empty((nx*nz))
+qlw_regr = np.empty((nx*nz))
+qsw_regr = np.empty((nx*nz))
 
 for i in tqdm(range(qlw_reshape.shape[1])):
     qlw_non_nan = ~np.isnan(qlw_reshape[:,i])
@@ -68,31 +70,25 @@ for i in tqdm(range(qlw_reshape.shape[1])):
     qlw_prec_valid = prec[qlw_non_nan]
     qsw_prec_valid = prec[qsw_non_nan]    
 
-    qlw_corr[i] = np.corrcoef(qlw_valid, qlw_prec_valid)[0, 1]
-    qsw_corr[i] = np.corrcoef(qsw_valid, qsw_prec_valid)[0, 1]
+    qlw_valid -= np.nanmean(qlw_valid)
+    qsw_valid -= np.nanmean(qsw_valid)
+    qlw_prec_valid -= np.nanmean(qlw_prec_valid)
+    qsw_prec_valid -= np.nanmean(qsw_prec_valid)
+
+    qlw_corr[i] = np.nanmean(qlw_valid * qlw_prec_valid) / (np.nanstd(qlw_valid) * np.nanstd(qlw_prec_valid))
+    qsw_corr[i] = np.nanmean(qsw_valid * qsw_prec_valid) / (np.nanstd(qsw_valid) * np.nanstd(qsw_prec_valid))
+
+    qlw_regr[i] = np.nanmean(qlw_valid * qlw_prec_valid) / (np.nanvar(qsw_prec_valid))
+    qsw_regr[i] = np.nanmean(qsw_valid * qsw_prec_valid) / (np.nanvar(qlw_prec_valid))
 
 qlw_corr = qlw_corr.reshape(nz, nx)
 qsw_corr = qsw_corr.reshape(nz, nx)
 
-#######################
-# 4. Smoothening
-#######################
-
-k_ave      = (k_domains[0] + k_domains[1]) / 2
-kernel_len = np.round(2*np.pi*6.371*1e6*1e-3/(k_ave*4*110))/0.625
-kernel     = np.ones(int(kernel_len))/ int(kernel_len)
-
-qlw_corr_smooth = convolve1d(np.nanmean(qlw, axis=0), kernel, axis=-1)
-qsw_corr_smooth = convolve1d(np.nanmean(qsw, axis=0), kernel, axis=-1)
-
-fix_kernel_length =  np.round(2*np.pi*6.371*1e6*1e-3/(9*4*110))/0.625
-fix_kernel = np.ones(int(fix_kernel_length))/ int(fix_kernel_length)
-
-qlw_corr_smooth_fix = convolve1d(np.nanmean(qlw, axis=0), fix_kernel, axis=-1)
-qsw_corr_smooth_fix = convolve1d(np.nanmean(qsw, axis=0), fix_kernel, axis=-1)
+qlw_regr = qlw_regr.reshape(nz, nx)
+qsw_regr = qsw_regr.reshape(nz, nx)
 
 #######################
-# 5. Plot
+# 4. Plot
 #######################
 plt.rcParams["font.family"] = "DejaVu Sans" 
 # Original
