@@ -1,4 +1,4 @@
-# This program is to select data with OLR anomalies
+# This program is to select Kelvin wave events over different wavenumber segments
 ##################################
 # 1. Import packages
 ##################################
@@ -11,10 +11,12 @@ import xarray as xr
 from matplotlib import pyplot as plt
 
 ##################################
-# 2. Import package
+# 2. Import data
 ##################################
 
-FILE_INPUT = "/work/DATA/Satellite/OLR/olr_anomaly.nc"
+k_domains = (int(sys.argv[1]), int(sys.argv[2]))
+
+FILE_INPUT = "/work/b11209013/2025_Research/IMERG/IMERG_06_17.nc"
 
 with xr.open_dataset(FILE_INPUT) as f:
 
@@ -22,14 +24,12 @@ with xr.open_dataset(FILE_INPUT) as f:
 
     coords = f.coords
 
-    olr = f['olr']
+    prec = f["precipitation"]
 
-    olr -= olr.mean(dim={'time', "lon"})
-    olr = olr.mean(dim='lat')
+    prec -= prec.mean(dim={'time', "lon"})
+    prec = prec.mean(dim='lat')
 
-nt, nx = olr.shape
-
-k_domain = (int(sys.argv[1]), int(sys.argv[2]))
+nt, nx = prec.shape
 
 ################################
 # 3. Apply bandpass filter
@@ -42,7 +42,7 @@ def fft2(data):
 
     return data_fft
 
-olr_fft = fft2(olr)
+prec_fft = fft2(prec)
 
 # setup wavenumber and frequency
 kn = np.fft.fftfreq(nx, d=1/nx)
@@ -56,20 +56,20 @@ kel_cond = lambda k, ed: 86400.0/(2*np.pi*6.371e6)*k*np.sqrt(9.81*ed)
 
 mask = np.where(
     (
-        (kk >= k_domain[0]) & (kk <= k_domain[1]) &
+        (kk >= k_domains[0]) & (kk <= k_domains[1]) &
         (ff >= 1/20) & (ff <= 1/2.5) &                     # KW band
         # (ff >= 1/90) & (ff <= 1/30)                          # MJO band
         (ff >= kel_cond(kk, 8)) & (ff <= kel_cond(kk, 50)) # dispersion relation for KW
     ) |
     (
-        (kk <= -k_domain[0]) & (kk >= -k_domain[1]) &
+        (kk <= -k_domains[0]) & (kk >= -k_domains[1]) &
         (ff <= -1/20) & (ff >= -1/2.5) &                   # KW band
         # (ff <= -1/90) & (ff >= -1/30)                        # MJO band
         (ff <= kel_cond(kk, 8)) & (ff >= kel_cond(kk, 50)) # dispersion relation for KW
     ), 1, 0
 )
 
-olr_fft_masked = olr_fft * mask
+prec_fft_masked = prec_fft * mask
 
 # Inverse 2D FFT
 def ifft2(data_fft):
@@ -78,18 +78,18 @@ def ifft2(data_fft):
 
     return data.real
 
-olr_kw = ifft2(olr_fft_masked)
+prec_kw = ifft2(prec_fft_masked)
 
 ################################
 # 4. Apply threshold
 ################################
 
 # Calculate threshold and significant areas
-olr_kw_mean, olr_kw_std = olr_kw.mean(), olr_kw.std()
+prec_kw_mean, prec_kw_std = prec_kw.mean(), prec_kw.std()
 
-threshold = olr_kw_mean - 2.33 * olr_kw_std
+threshold = prec_kw_mean + 2.33 * prec_kw_std
 
-sig_kw = np.where(olr_kw <= threshold, 1, 0)
+sig_kw = np.where(prec_kw <= threshold, 1, 0)
 
 
 # find local maximum points
@@ -99,14 +99,14 @@ for i in range((nt-14)//14):
     strt = i*14 + 7
     end = strt + 14
 
-    loc_min = np.where(
-        (olr_kw[strt:end, :] == olr_kw[strt:end, :].min()) &
-        (olr_kw[strt:end, :] < threshold)
+    loc_max = np.where(
+        (prec_kw[strt:end, :] == prec_kw[strt:end, :].min()) &
+        (prec_kw[strt:end, :] < threshold)
     )
 
-    if len(loc_min[0]) > 0:
-        max_times.append(loc_min[0][0] + strt)
-        max_lons.append(loc_min[1][0])
+    if len(loc_max[0]) > 0:
+        max_times.append(loc_max[0][0] + strt)
+        max_lons.append(loc_max[1][0])
 
 max_times = np.array(max_times)
 max_lons = np.array(max_lons)
@@ -122,11 +122,11 @@ max_lons_valid = max_lons[valid_criteria]
 ################################
 # 5. Save data
 ################################
-FILE_OUTPUT = f"/home/b11209013/2025_Research/Obs/Files/OLR/olr_kw_k_{k_domain[0]}_{k_domain[1]}.h5" # For KW
-# FILE_OUTPUT = f"/home/b11209013/2025_Research/CloudSat/Files/olr_mjo_k_{k_domain[0]}_{k_domain[1]}.h5" # For MJO
+FILE_OUTPUT = f"/home/b11209013/2025_Research/Obs/Files/IMERG/prec_kw_k_{k_domains[0]}_{k_domains[1]}.h5" # For KW
+# FILE_OUTPUT = f"/home/b11209013/2025_Research/Obs/Files/IMERG/olr_mjo_k_{k_domains[0]}_{k_domains[1]}.h5" # For MJO
 
 
 with h5py.File(FILE_OUTPUT, 'w') as f:
-    f.create_dataset("reconstruct_olr", data=olr_kw)
-    f.create_dataset("max_times"      , data=max_times_valid)
-    f.create_dataset("max_lons"       , data=max_lons_valid)
+    f.create_dataset("prec"      , data=prec_kw)
+    f.create_dataset("max_times" , data=max_times_valid)
+    f.create_dataset("max_lons"  , data=max_lons_valid)
