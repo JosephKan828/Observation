@@ -36,11 +36,11 @@ with xr.open_dataset("/work/b11209013/2025_Research/CloudSat/CloudSat_sub/qsw.nc
     qsw = f["qsw"].values
 
 # Load KW-filtered OLR
-with h5py.File(f"/home/b11209013/2025_Research/Obs/Files/IMERG/prec_kw_k_{k_domains[0]}_{k_domains[1]}.h5", "r") as f:
-# with h5py.File(f"/home/b11209013/2025_Research/CloudSat/Files/prec_mjo_k_{k_domains[0]}_{k_domains[1]}.h5", "r") as f:
+# with h5py.File(f"/home/b11209013/2025_Research/Obs/Files/IMERG/prec_kw_k_{k_domains[0]}_{k_domains[1]}.h5", "r") as f:
+with h5py.File(f"/home/b11209013/2025_Research/Obs/Files/IMERG/prec_mjo_k_{k_domains[0]}_{k_domains[1]}.h5", "r") as f:
 
-    lon_180 = np.argmin(np.abs(lon - 180))
-
+    lon_kw = np.array(f.get("lon"))
+    lon_180 = np.argmin(np.abs(lon_kw - 180))
     prec = np.array(f.get("prec"))[:, lon_180]
 
 #######################
@@ -53,8 +53,6 @@ qsw_reshape = qsw.reshape(nt, nz*nx)
 
 qlw_corr = np.empty((nx*nz))
 qsw_corr = np.empty((nx*nz))
-qlw_regr = np.empty((nx*nz))
-qsw_regr = np.empty((nx*nz))
 
 for i in tqdm(range(qlw_reshape.shape[1])):
     qlw_non_nan = ~np.isnan(qlw_reshape[:,i])
@@ -67,25 +65,14 @@ for i in tqdm(range(qlw_reshape.shape[1])):
 
     qlw_valid = qlw_reshape[:,i][qlw_non_nan]
     qsw_valid = qsw_reshape[:,i][qsw_non_nan]
-    qlw_prec_valid = prec[qlw_non_nan]
-    qsw_prec_valid = prec[qsw_non_nan]    
+    qlw_olr_valid = prec[qlw_non_nan]
+    qsw_olr_valid = prec[qsw_non_nan]    
 
-    qlw_valid -= np.nanmean(qlw_valid)
-    qsw_valid -= np.nanmean(qsw_valid)
-    qlw_prec_valid -= np.nanmean(qlw_prec_valid)
-    qsw_prec_valid -= np.nanmean(qsw_prec_valid)
-
-    qlw_corr[i] = np.nanmean(qlw_valid * qlw_prec_valid) / (np.nanstd(qlw_valid) * np.nanstd(qlw_prec_valid))
-    qsw_corr[i] = np.nanmean(qsw_valid * qsw_prec_valid) / (np.nanstd(qsw_valid) * np.nanstd(qsw_prec_valid))
-
-    qlw_regr[i] = np.nanmean(qlw_valid * qlw_prec_valid) / (np.nanvar(qsw_prec_valid))
-    qsw_regr[i] = np.nanmean(qsw_valid * qsw_prec_valid) / (np.nanvar(qlw_prec_valid))
+    qlw_corr[i] = np.corrcoef(qlw_valid, qlw_olr_valid)[0, 1]
+    qsw_corr[i] = np.corrcoef(qsw_valid, qsw_olr_valid)[0, 1]
 
 qlw_corr = qlw_corr.reshape(nz, nx)
 qsw_corr = qsw_corr.reshape(nz, nx)
-
-qlw_regr = qlw_regr.reshape(nz, nx)
-qsw_regr = qsw_regr.reshape(nz, nx)
 
 #######################
 # 4. Plot
@@ -96,42 +83,42 @@ plt.figure(figsize=(15, 6))
 cf = plt.pcolormesh(
     lon, np.linspace(1000, 100, 37), qlw_corr,
     cmap="RdBu_r",
-    norm=TwoSlopeNorm(vcenter=0)
+    norm=TwoSlopeNorm(vcenter=0, vmin=-0.2, vmax=0.2)
     )
-plt.axvline(lon[lon_180], color="k", linewidth=3, linestyle="--")
+plt.axvline(180, color="k", linewidth=3, linestyle="--")
 plt.xticks(fontsize=16)
 plt.yticks(fontsize=16)
 plt.xlabel("Longitude (degree)", fontsize=18)
 plt.ylabel("Level (hPa)", fontsize=18)
-plt.title("Correlation between LW and KW Prec (w/o smoothing)", fontsize=20)
-# plt.title("Correlation between LW and MJO OLR (w/o smoothing)", fontsize=20)
+# plt.title("Correlation between LW and KW prec (w/o smoothing)", fontsize=20)
+plt.title("Correlation between LW and MJO OLR (w/o smoothing)", fontsize=20)
 plt.gca().invert_yaxis()
 cb = plt.colorbar()
 cb.ax.set_ylabel("Correlation coefficient", fontsize=18)
 cb.ax.tick_params(labelsize=16)
 plt.tight_layout()
-plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/IMERG/Correlation/Origin/qlw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-# plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Original/qlw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
+# plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/IMERG/Correlation/qlw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
+plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/IMERG/Correlation/qlw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
 plt.close()
 
 plt.figure(figsize=(15, 6))
 cf = plt.pcolormesh(
     lon, np.linspace(1000, 100, 37), qsw_corr,
     cmap="RdBu_r",
-    norm=TwoSlopeNorm(vcenter=0)
+    norm=TwoSlopeNorm(vcenter=0, vmin=-0.2, vmax=0.2)
     )
-plt.axvline(lon[lon_180], color="k", linewidth=3, linestyle="--")
+plt.axvline(180, color="k", linewidth=3, linestyle="--")
 plt.xticks(fontsize=16)
 plt.yticks(fontsize=16)
 plt.xlabel("Longitude (degree)", fontsize=18)
 plt.ylabel("Level (hPa)", fontsize=18)
-plt.title("Correlation between SW and KW Prec (w/o smoothing)", fontsize=20)
-# plt.title("Correlation between SW and MJO OLR (w/o smoothing)", fontsize=20)
+# plt.title("Correlation between SW and KW OLR (w/o smoothing)", fontsize=20)
+plt.title("Correlation between SW and MJO OLR (w/o smoothing)", fontsize=20)
 plt.gca().invert_yaxis()
 cb = plt.colorbar()
 cb.ax.set_ylabel("Correlation coefficient", fontsize=18)
 cb.ax.tick_params(labelsize=16)
 plt.tight_layout()
-plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/IMERG/Correlation/Origin/qsw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-# plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Original/qsw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
+# plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/IMERG/Correlation/qsw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
+plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/IMERG/Correlation/qsw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
 plt.close()

@@ -57,15 +57,15 @@ kel_cond = lambda k, ed: 86400.0/(2*np.pi*6.371e6)*k*np.sqrt(9.81*ed)
 mask = np.where(
     (
         (kk >= k_domains[0]) & (kk <= k_domains[1]) &
-        (ff >= 1/20) & (ff <= 1/2.5) &                     # KW band
-        # (ff >= 1/90) & (ff <= 1/30)                          # MJO band
-        (ff >= kel_cond(kk, 8)) & (ff <= kel_cond(kk, 50)) # dispersion relation for KW
+        # (ff >= 1/20) & (ff <= 1/2.5) &                     # KW band
+        (ff >= 1/90) & (ff <= 1/30)                          # MJO band
+        # (ff >= kel_cond(kk, 8)) & (ff <= kel_cond(kk, 50)) # dispersion relation for KW
     ) |
     (
         (kk <= -k_domains[0]) & (kk >= -k_domains[1]) &
-        (ff <= -1/20) & (ff >= -1/2.5) &                   # KW band
-        # (ff <= -1/90) & (ff >= -1/30)                        # MJO band
-        (ff <= kel_cond(kk, 8)) & (ff >= kel_cond(kk, 50)) # dispersion relation for KW
+        # (ff <= -1/20) & (ff >= -1/2.5) &                   # KW band
+        (ff <= -1/90) & (ff >= -1/30)                        # MJO band
+        # (ff <= kel_cond(kk, 8)) & (ff >= kel_cond(kk, 50)) # dispersion relation for KW
     ), 1, 0
 )
 
@@ -79,7 +79,7 @@ def ifft2(data_fft):
     return data.real
 
 prec_kw = ifft2(prec_fft_masked)
-
+print(prec_kw.shape)
 ################################
 # 4. Apply threshold
 ################################
@@ -122,11 +122,12 @@ max_lons_valid = max_lons[valid_criteria]
 ################################
 # 5. Save data
 ################################
-FILE_OUTPUT = f"/home/b11209013/2025_Research/Obs/Files/IMERG/prec_kw_k_{k_domains[0]}_{k_domains[1]}.h5" # For KW
-# FILE_OUTPUT = f"/home/b11209013/2025_Research/Obs/Files/IMERG/prec_mjo_k_{k_domains[0]}_{k_domains[1]}.h5" # For MJO
+# FILE_OUTPUT = f"/home/b11209013/2025_Research/Obs/Files/IMERG/prec_kw_k_{k_domains[0]}_{k_domains[1]}.h5" # For KW
+FILE_OUTPUT = f"/home/b11209013/2025_Research/Obs/Files/IMERG/prec_mjo_k_{k_domains[0]}_{k_domains[1]}.h5" # For MJO
 
 
 with h5py.File(FILE_OUTPUT, 'w') as f:
+    f.create_dataset("lon"       , data=coords["lon"].values)
     f.create_dataset("prec"      , data=prec_kw)
     f.create_dataset("max_times" , data=max_times_valid)
     f.create_dataset("max_lons"  , data=max_lons_valid)

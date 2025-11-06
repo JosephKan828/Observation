@@ -36,10 +36,10 @@ with xr.open_dataset("/work/b11209013/2025_Research/CloudSat/CloudSat_sub/qsw.nc
     qsw = f["qsw"].values
 
 # Load KW-filtered OLR
-# with h5py.File(f"/home/b11209013/2025_Research/CloudSat/Files/olr_kw_k_{k_domains[0]}_{k_domains[1]}.h5", "r") as f:
-with h5py.File(f"/home/b11209013/2025_Research/CloudSat/Files/olr_mjo_k_{k_domains[0]}_{k_domains[1]}.h5", "r") as f:
+# with h5py.File(f"/home/b11209013/2025_Research/Obs/Files/OLR/olr_kw_k_{k_domains[0]}_{k_domains[1]}.h5", "r") as f:
+with h5py.File(f"/home/b11209013/2025_Research/Obs/Files/OLR/olr_mjo_k_{k_domains[0]}_{k_domains[1]}.h5", "r") as f:
 
-    lon_180 = np.argmin(np.abs(lon - 180))
+    lon_180 = np.argmin(np.abs(np.array(f.get("lon")) - 180))
 
     olr = np.array(f.get("reconstruct_olr"))[:, lon_180]
 
@@ -75,24 +75,7 @@ qlw_corr = qlw_corr.reshape(nz, nx)
 qsw_corr = qsw_corr.reshape(nz, nx)
 
 #######################
-# 4. Smoothening
-#######################
-
-k_ave      = (k_domains[0] + k_domains[1]) / 2
-kernel_len = np.round(2*np.pi*6.371*1e6*1e-3/(k_ave*4*110))/0.625
-kernel     = np.ones(int(kernel_len))/ int(kernel_len)
-
-qlw_corr_smooth = convolve1d(np.nanmean(qlw, axis=0), kernel, axis=-1)
-qsw_corr_smooth = convolve1d(np.nanmean(qsw, axis=0), kernel, axis=-1)
-
-fix_kernel_length =  np.round(2*np.pi*6.371*1e6*1e-3/(9*4*110))/0.625
-fix_kernel = np.ones(int(fix_kernel_length))/ int(fix_kernel_length)
-
-qlw_corr_smooth_fix = convolve1d(np.nanmean(qlw, axis=0), fix_kernel, axis=-1)
-qsw_corr_smooth_fix = convolve1d(np.nanmean(qsw, axis=0), fix_kernel, axis=-1)
-
-#######################
-# 5. Plot
+# 4. Plot
 #######################
 plt.rcParams["font.family"] = "DejaVu Sans" 
 # Original
@@ -100,9 +83,9 @@ plt.figure(figsize=(15, 6))
 cf = plt.pcolormesh(
     lon, np.linspace(1000, 100, 37), qlw_corr,
     cmap="RdBu_r",
-    norm=TwoSlopeNorm(vcenter=0)
+    norm=TwoSlopeNorm(vcenter=0, vmin=-0.2, vmax=0.2)
     )
-plt.axvline(lon[lon_180], color="k", linewidth=3, linestyle="--")
+plt.axvline(180, color="k", linewidth=3, linestyle="--")
 plt.xticks(fontsize=16)
 plt.yticks(fontsize=16)
 plt.xlabel("Longitude (degree)", fontsize=18)
@@ -114,17 +97,17 @@ cb = plt.colorbar()
 cb.ax.set_ylabel("Correlation coefficient", fontsize=18)
 cb.ax.tick_params(labelsize=16)
 plt.tight_layout()
-# plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Original/qlw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Original/qlw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
+# plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/CloudSat/Correlation/qlw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
+plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/CloudSat/Correlation/qlw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
 plt.close()
 
 plt.figure(figsize=(15, 6))
 cf = plt.pcolormesh(
     lon, np.linspace(1000, 100, 37), qsw_corr,
     cmap="RdBu_r",
-    norm=TwoSlopeNorm(vcenter=0)
+    norm=TwoSlopeNorm(vcenter=0, vmin=-0.2, vmax=0.2)
     )
-plt.axvline(lon[lon_180], color="k", linewidth=3, linestyle="--")
+plt.axvline(180, color="k", linewidth=3, linestyle="--")
 plt.xticks(fontsize=16)
 plt.yticks(fontsize=16)
 plt.xlabel("Longitude (degree)", fontsize=18)
@@ -136,96 +119,6 @@ cb = plt.colorbar()
 cb.ax.set_ylabel("Correlation coefficient", fontsize=18)
 cb.ax.tick_params(labelsize=16)
 plt.tight_layout()
-# plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Original/qsw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Original/qsw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.close()
-
-# Smoothened with varying window
-plt.figure(figsize=(15, 6))
-cf = plt.pcolormesh(
-    lon, np.linspace(1000, 100, 37), qlw_corr_smooth,
-    cmap="RdBu_r",
-    norm=TwoSlopeNorm(vcenter=0)
-    )
-plt.axvline(lon[lon_180], color="k", linewidth=3, linestyle="--")
-plt.xticks(fontsize=16)
-plt.yticks(fontsize=16)
-plt.xlabel("Longitude (degree)", fontsize=18)
-plt.ylabel("Level (hPa)", fontsize=18)
-# plt.title("Correlation between LW and KW OLR (w/ smoothing, varying window)", fontsize=20)
-plt.title("Correlation between LW and MJO OLR (w/ smoothing, varying window)", fontsize=20)
-plt.gca().invert_yaxis()
-cb = plt.colorbar()
-cb.ax.set_ylabel("Correlation coefficient", fontsize=18)
-cb.ax.tick_params(labelsize=16)
-plt.tight_layout()
-# plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Smooth/Varying/qlw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Smooth/Varying/qlw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.close()
-
-plt.figure(figsize=(15, 6))
-cf = plt.pcolormesh(
-    lon, np.linspace(1000, 100, 37), qsw_corr_smooth,
-    cmap="RdBu_r",
-    norm=TwoSlopeNorm(vcenter=0)
-    )
-plt.axvline(lon[lon_180], color="k", linewidth=3, linestyle="--")
-plt.xticks(fontsize=16)
-plt.yticks(fontsize=16)
-plt.xlabel("Longitude (degree)", fontsize=18)
-plt.ylabel("Level (hPa)", fontsize=18)
-# plt.title("Correlation between SW and KW OLR (w/ smoothing, varying window)", fontsize=20)
-plt.title("Correlation between SW and MJO OLR (w/ smoothing, varying window)", fontsize=20)
-plt.gca().invert_yaxis()
-cb = plt.colorbar()
-cb.ax.set_ylabel("Correlation coefficient", fontsize=18)
-cb.ax.tick_params(labelsize=16)
-plt.tight_layout()
-# plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Smooth/Varying/qsw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Smooth/Varying/qsw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.close()
-
-# Smoothened with fixed window
-plt.figure(figsize=(15, 6))
-cf = plt.pcolormesh(
-    lon, np.linspace(1000, 100, 37), qlw_corr_smooth_fix,
-    cmap="RdBu_r",
-    norm=TwoSlopeNorm(vcenter=0)
-    )
-plt.axvline(lon[lon_180], color="k", linewidth=3, linestyle="--")
-plt.xticks(fontsize=16)
-plt.yticks(fontsize=16)
-plt.xlabel("Longitude (degree)", fontsize=18)
-plt.ylabel("Level (hPa)", fontsize=18)
-# plt.title("Correlation between LW and KW OLR (w/ smoothing, fixed window)", fontsize=20)
-plt.title("Correlation between LW and MJO OLR (w/ smoothing, fixed window)", fontsize=20)
-plt.gca().invert_yaxis()
-cb = plt.colorbar()
-cb.ax.set_ylabel("Correlation coefficient", fontsize=18)
-cb.ax.tick_params(labelsize=16)
-plt.tight_layout()
-# plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Smooth/Fixed/qlw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Smooth/Fixed/qlw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.close()
-
-plt.figure(figsize=(15, 6))
-cf = plt.pcolormesh(
-    lon, np.linspace(1000, 100, 37), qsw_corr_smooth_fix,
-    cmap="RdBu_r",
-    norm=TwoSlopeNorm(vcenter=0)
-    )
-plt.axvline(lon[lon_180], color="k", linewidth=3, linestyle="--")
-plt.xticks(fontsize=16)
-plt.yticks(fontsize=16)
-plt.xlabel("Longitude (degree)", fontsize=18)
-plt.ylabel("Level (hPa)", fontsize=18)
-# plt.title("Correlation between SW and KW OLR (w/ smoothing, fixed window)", fontsize=20)
-plt.title("Correlation between SW and MJO OLR (w/ smoothing, fixed window)", fontsize=20)
-plt.gca().invert_yaxis()
-cb = plt.colorbar()
-cb.ax.set_ylabel("Correlation coefficient", fontsize=18)
-cb.ax.tick_params(labelsize=16)
-plt.tight_layout()
-# plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Smooth/Fixed/qsw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.savefig(f"/home/b11209013/2025_Research/CloudSat/Figure/CloudSat_profile/Correlation/Smooth/Fixed/qsw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
+# plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/CloudSat/Correlation/qsw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
+plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/CloudSat/Correlation/qsw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
 plt.close()
