@@ -6,6 +6,7 @@
 
 import sys
 import h5py
+import warnings
 import numpy as np
 import xarray as xr
 from matplotlib import pyplot as plt
@@ -14,24 +15,30 @@ from matplotlib.colors import TwoSlopeNorm
 
 from tqdm import tqdm
 
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+
 #######################
 # 2. Load data
 #######################
 
 k_domains = (int(sys.argv[1]), int(sys.argv[2]))
-
+central_lon = int(sys.argv[3])
 # Load CloudSat
 with xr.open_dataset("/work/b11209013/2025_Research/CloudSat/CloudSat_sub/qlw.nc") as f:
-    f = f.sel(lon=slice(80, 280))
+    # f = f.sel(lon=slice(central_lon-100, central_lon+100))
 
-    coords = f.coords
-    lon = coords["lon"].values
+    lon_centered = (f["lon"] - central_lon + 180) % 360 - 180
+    f = f.assign_coords(lon=lon_centered).sortby("lon")
+
     qlw = f["qlw"].values
+    lon_plot = f["lon"].values                    # <<< use this for plotting
 
 nt, nz, nx = qlw.shape
 
 with xr.open_dataset("/work/b11209013/2025_Research/CloudSat/CloudSat_sub/qsw.nc") as f:
-    f = f.sel(lon=slice(80, 280))
+
+    lon_centered = (f["lon"] - central_lon + 180) % 360 - 180
+    f = f.assign_coords(lon=lon_centered).sortby("lon")
 
     qsw = f["qsw"].values
 
@@ -39,9 +46,11 @@ with xr.open_dataset("/work/b11209013/2025_Research/CloudSat/CloudSat_sub/qsw.nc
 # with h5py.File(f"/home/b11209013/2025_Research/Obs/Files/OLR/olr_kw_k_{k_domains[0]}_{k_domains[1]}.h5", "r") as f:
 with h5py.File(f"/home/b11209013/2025_Research/Obs/Files/OLR/olr_mjo_k_{k_domains[0]}_{k_domains[1]}.h5", "r") as f:
 
-    lon_180 = np.argmin(np.abs(np.array(f.get("lon")) - 180))
+    lon_kw = np.array(f.get("lon"))
+    lon_tar = int(np.argmin(np.abs(lon_kw - central_lon)))
+    lon_cen = lon_kw.size // 2
 
-    olr = np.array(f.get("reconstruct_olr"))[:, lon_180]
+    olr = np.array(f.get("reconstruct_olr"))[:, lon_tar]
 
 #######################
 # 3. Regression
@@ -75,50 +84,61 @@ qlw_corr = qlw_corr.reshape(nz, nx)
 qsw_corr = qsw_corr.reshape(nz, nx)
 
 #######################
+# 4. save file
+#######################
+# with h5py.File(f"/home/b11209013/2025_Research/Obs/Files/OLR/Corr/corr_kw_k_{k_domains[0]}_{k_domains[1]}_lon={central_lon}.h5", "w") as f:
+with h5py.File(f"/home/b11209013/2025_Research/Obs/Files/OLR/Corr/corr_mjo_k_{k_domains[0]}_{k_domains[1]}_lon={central_lon}.h5", "w") as f:
+    f.create_dataset("qlw_corr", data=qlw_corr)
+    f.create_dataset("qsw_corr", data=qsw_corr)
+
+#######################
 # 4. Plot
 #######################
-plt.rcParams["font.family"] = "DejaVu Sans" 
-# Original
-plt.figure(figsize=(15, 6))
-cf = plt.pcolormesh(
-    lon, np.linspace(1000, 100, 37), qlw_corr,
-    cmap="RdBu_r",
-    norm=TwoSlopeNorm(vcenter=0, vmin=-0.2, vmax=0.2)
-    )
-plt.axvline(180, color="k", linewidth=3, linestyle="--")
-plt.xticks(fontsize=16)
-plt.yticks(fontsize=16)
-plt.xlabel("Longitude (degree)", fontsize=18)
-plt.ylabel("Level (hPa)", fontsize=18)
-# plt.title("Correlation between LW and KW OLR (w/o smoothing)", fontsize=20)
-plt.title("Correlation between LW and MJO OLR (w/o smoothing)", fontsize=20)
-plt.gca().invert_yaxis()
-cb = plt.colorbar()
-cb.ax.set_ylabel("Correlation coefficient", fontsize=18)
-cb.ax.tick_params(labelsize=16)
-plt.tight_layout()
-# plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/OLR_corr/qlw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/OLR_corr/qlw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.close()
+if central_lon==180:
+    plt.rcParams["font.family"] = "DejaVu Sans" 
+    # Original
+    plt.figure(figsize=(15, 6))
+    cf = plt.pcolormesh(
+        lon_plot, np.linspace(1000, 100, 37), qlw_corr,
+        cmap="RdBu_r",
+        norm=TwoSlopeNorm(vcenter=0, vmin=-0.2, vmax=0.2)
+        )
+    plt.xlim(-100, 100)
+    plt.axvline(0, color="k", linewidth=3, linestyle="--")
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.xlabel("Longitude (degree)", fontsize=18)
+    plt.ylabel("Level (hPa)", fontsize=18)
+    # plt.title("Correlation between LW and KW OLR (w/o smoothing)", fontsize=20)
+    plt.title("Correlation between LW and MJO OLR (w/o smoothing)", fontsize=20)
+    plt.gca().invert_yaxis()
+    cb = plt.colorbar()
+    cb.ax.set_ylabel("Correlation coefficient", fontsize=18)
+    cb.ax.tick_params(labelsize=16)
+    plt.tight_layout()
+    # plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/OLR_corr/qlw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
+    plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/OLR_corr/qlw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
+    plt.close()
 
-plt.figure(figsize=(15, 6))
-cf = plt.pcolormesh(
-    lon, np.linspace(1000, 100, 37), qsw_corr,
-    cmap="RdBu_r",
-    norm=TwoSlopeNorm(vcenter=0, vmin=-0.2, vmax=0.2)
-    )
-plt.axvline(180, color="k", linewidth=3, linestyle="--")
-plt.xticks(fontsize=16)
-plt.yticks(fontsize=16)
-plt.xlabel("Longitude (degree)", fontsize=18)
-plt.ylabel("Level (hPa)", fontsize=18)
-# plt.title("Correlation between SW and KW OLR (w/o smoothing)", fontsize=20)
-plt.title("Correlation between SW and MJO OLR (w/o smoothing)", fontsize=20)
-plt.gca().invert_yaxis()
-cb = plt.colorbar()
-cb.ax.set_ylabel("Correlation coefficient", fontsize=18)
-cb.ax.tick_params(labelsize=16)
-plt.tight_layout()
-# plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/OLR_corr/qsw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/OLR_corr/qsw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
-plt.close()
+    plt.figure(figsize=(15, 6))
+    cf = plt.pcolormesh(
+        lon_plot, np.linspace(1000, 100, 37), qsw_corr,
+        cmap="RdBu_r",
+        norm=TwoSlopeNorm(vcenter=0, vmin=-0.2, vmax=0.2)
+        )
+    plt.xlim(-100, 100)
+    plt.axvline(0, color="k", linewidth=3, linestyle="--")
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.xlabel("Longitude (degree)", fontsize=18)
+    plt.ylabel("Level (hPa)", fontsize=18)
+    # plt.title("Correlation between SW and KW OLR (w/o smoothing)", fontsize=20)
+    plt.title("Correlation between SW and MJO OLR (w/o smoothing)", fontsize=20)
+    plt.gca().invert_yaxis()
+    cb = plt.colorbar()
+    cb.ax.set_ylabel("Correlation coefficient", fontsize=18)
+    cb.ax.tick_params(labelsize=16)
+    plt.tight_layout()
+    # plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/OLR_corr/qsw_kw_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
+    plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/OLR_corr/qsw_mjo_k_{k_domains[0]}_{k_domains[1]}.png", dpi=300)
+    plt.close()
