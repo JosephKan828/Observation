@@ -1,6 +1,6 @@
 #!/bin/sh
 
-PYTHON_SCRIPT="corr_composite.py"
+PYTHON_SCRIPT="regcoeff_composite.py"
 
 for i in {0..5}; do
     init=$((2*i+1))
