@@ -116,7 +116,7 @@ cb = plt.colorbar(sw_cf)
 cb.ax.set_ylabel("Regression coefficient", fontsize=18)
 cb.ax.tick_params(labelsize=16)
 plt.tight_layout()
-plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/IMERG_corr/qsw_{dis_type}_k_{k_domains[0]}_{k_domains[1]}_compsite.png", dpi=300)
+plt.savefig(f"/home/b11209013/2025_Research/Obs/Figure/ERA5_reg/qsw_{dis_type}_k_{k_domains[0]}_{k_domains[1]}_compsite.png", dpi=300)
 plt.close()
 
 #####################
