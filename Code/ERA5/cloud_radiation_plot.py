@@ -64,6 +64,9 @@ for key in tqdm(lw.keys()):
     t_level = [t for t in tlevel if t != 0]
     q_level = [q for q in qlevel if q != 0]
 
+    lw_max = np.max(np.abs(lw[key][1:-1]))
+    sw_max = np.max(np.abs(sw[key][1:-1]))
+
     dis_type = key.split("_")[0]
     k_left = key.split("_")[1]
     k_right = key.split("_")[2]
@@ -74,7 +77,7 @@ for key in tqdm(lw.keys()):
     lw_cf = plt.pcolormesh(
         lon, lev, lw[key],
         cmap="RdBu_r",
-        norm=TwoSlopeNorm(vcenter=0)
+        norm=TwoSlopeNorm(vcenter=0, vmin=-lw_max, vmax=lw_max)
     )
     t_lw = plt.contour(
         lon, lev, t_reg[key],
@@ -105,7 +108,7 @@ for key in tqdm(lw.keys()):
     sw_cf = plt.pcolormesh(
         lon, lev, sw[key],
         cmap="RdBu_r",
-        norm=TwoSlopeNorm(vcenter=0)
+        norm=TwoSlopeNorm(vcenter=0, vmin=-sw_max, vmax=sw_max)
     )
     t_sw = plt.contour(
         lon, lev, t_reg[key],
