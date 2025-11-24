@@ -22,10 +22,10 @@ from matplotlib import pyplot as plt
 LRF = {}
 
 with h5py.File("/work/b11209013/2025_Research/MSI/Rad_Stuff/LRF.h5", "r") as f:
-    LRF["t_lw"] = np.array(f.get("t_lw"))
-    LRF["t_sw"] = np.array(f.get("t_sw"))
-    LRF["q_lw"] = np.array(f.get("q_lw"))
-    LRF["q_sw"] = np.array(f.get("q_sw"))
+    LRF["t_lw"] = np.array(f.get("t_lw"))[::-1, ::-1]
+    LRF["t_sw"] = np.array(f.get("t_sw"))[::-1, ::-1]
+    LRF["q_lw"] = np.array(f.get("q_lw"))[::-1, ::-1]
+    LRF["q_sw"] = np.array(f.get("q_sw"))[::-1, ::-1]
 
 # Load ERA5 regression profile
 PATH_REG = "/home/b11209013/2025_Research/Obs/Files/ERA5/reg/"
