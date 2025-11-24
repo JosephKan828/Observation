@@ -133,3 +133,17 @@ for key in tqdm(q_lw.keys()):
     plt.savefig(
         f"/home/b11209013/2025_Research/Obs/Figure/ERA5_reg/qsw_wo_cloud_{dis_type}_k_{k_left}_{k_right}_compsite.png", dpi=300)
     plt.close()
+
+# ##############
+# Save file
+# ##############
+with h5py.File("/home/b11209013/2025_Research/Obs/Files/ERA5/rad_wo_cloud.h5", "w") as f:
+    grp_lw = f.create_group("lw")
+
+    for key in q_lw.keys():
+        grp_lw.create_dataset(key, data=np.asarray(q_lw[key] + t_lw[key]))
+
+    grp_sw = f.create_group("sw")
+
+    for key in q_sw.keys():
+        grp_sw.create_dataset(key, data=np.asarray(q_sw[key] + t_sw[key]))
