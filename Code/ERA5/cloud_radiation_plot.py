@@ -77,7 +77,7 @@ for key in tqdm(lw.keys()):
     lw_cf = plt.pcolormesh(
         lon, lev, lw[key],
         cmap="RdBu_r",
-        norm=TwoSlopeNorm(vcenter=0, vmin=-lw_max, vmax=lw_max)
+        norm=TwoSlopeNorm(vcenter=0, vmin=-3, vmax=3)
     )
     t_lw = plt.contour(
         lon, lev, t_reg[key],
@@ -100,6 +100,7 @@ for key in tqdm(lw.keys()):
     plt.gca().invert_yaxis()
     cb = plt.colorbar(lw_cf)
     cb.ax.tick_params(labelsize=16)
+    plt.tight_layout()
     plt.savefig(
         f"/home/b11209013/2025_Research/Obs/Figure/ERA5_reg/lw_cloud_{dis_type}_k_{k_left}_{k_right}_compsite.png", dpi=300)
     plt.close()
@@ -108,7 +109,7 @@ for key in tqdm(lw.keys()):
     sw_cf = plt.pcolormesh(
         lon, lev, sw[key],
         cmap="RdBu_r",
-        norm=TwoSlopeNorm(vcenter=0, vmin=-sw_max, vmax=sw_max)
+        norm=TwoSlopeNorm(vcenter=0, vmin=-3, vmax=3)
     )
     t_sw = plt.contour(
         lon, lev, t_reg[key],
@@ -131,6 +132,7 @@ for key in tqdm(lw.keys()):
     plt.gca().invert_yaxis()
     cb = plt.colorbar(sw_cf)
     cb.ax.tick_params(labelsize=16)
+    plt.tight_layout()
     plt.savefig(
         f"/home/b11209013/2025_Research/Obs/Figure/ERA5_reg/sw_cloud_{dis_type}_k_{k_left}_{k_right}_compsite.png", dpi=300)
     plt.close()
