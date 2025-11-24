@@ -50,16 +50,16 @@ for i, key in enumerate(q_lw.keys()):
 lon = np.linspace(-180, 180, 576)
 lev = np.linspace(1000, 100, 37)
 
-tmax = np.max(np.abs(t_reg[key]))
-tlevel = np.linspace(-tmax, tmax, 11)
-qmax = np.max(np.abs(q_reg[key]))
-qlevel = np.linspace(-qmax, qmax, 11)
-
-t_level = [t for t in tlevel if t != 0]
-q_level = [q for q in qlevel if q != 0]
-
 
 for key in tqdm(q_lw.keys()):
+    tmax = np.max(np.abs(t_reg[key]))
+    tlevel = np.linspace(-tmax, tmax, 11)
+    qmax = np.max(np.abs(q_reg[key]))
+    qlevel = np.linspace(-qmax, qmax, 11)
+
+    t_level = [t for t in tlevel if t != 0]
+    q_level = [q for q in qlevel if q != 0]
+
     dis_type = key.split("_")[0]
     k_left = key.split("_")[1]
     k_right = key.split("_")[2]
