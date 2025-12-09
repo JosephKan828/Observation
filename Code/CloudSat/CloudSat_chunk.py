@@ -20,8 +20,5 @@ with xr.open_dataset("/work/DATA/Satellite/CloudSat/CloudSat_filtered.nc", chunk
     qlw = f['qlw'] - f['qlw'].mean(dim={'time', "lon"})
     qsw = f['qsw'] - f['qsw'].mean(dim={'time', "lon"})
 
-    qlw = qlw.mean(dim='lat', skipna=True)
-    qsw = qsw.mean(dim='lat', skipna=True)
-
 qlw.to_netcdf("/work/b11209013/2025_Research/CloudSat/CloudSat_sub/qlw.nc")
 qsw.to_netcdf("/work/b11209013/2025_Research/CloudSat/CloudSat_sub/qsw.nc")
