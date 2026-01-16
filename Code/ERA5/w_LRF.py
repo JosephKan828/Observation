@@ -17,18 +17,27 @@ def EOF(
 ) -> tuple[np.ndarray, np.ndarray]:
     if data.ndim != 2:
         raise ValueError("Input data must be 2D")
-    
+
     from sklearn.utils.extmath import randomized_svd
 
     # apply randomized SVD
-    U, S, Vt = randomized_svd(
+    if n_components == None:
+        U, S, Vt = randomized_svd(
         data,
-        n_components=n_components,
+        n_components=data.shape[-1],
         n_iter=5
     )
 
+    else:
+        U, S, Vt = randomized_svd(
+            data,
+            n_components=n_components,
+            n_iter=5
+        )
+
     EOFs: np.ndarray = Vt[ :n_components, : ] # shape: ( nmodes, nz )
     PCs : np.ndarray = ( data @ EOFs.T ) @ np.linalg.inv( EOFs @ EOFs.T ) # shape: ( nmodes, n_samples )
+    print( EOFs.shape, PCs.shape )
 
     return EOFs, PCs.T
 
@@ -40,10 +49,10 @@ def normal_equation(
         raise ValueError("Input data must be 2D")
     if EOFs.ndim != 2:
         raise ValueError("Input EOFs must be 2D")
-    
-    PCs: np.ndarray = data @ EOFs.T @ np.linalg.inv( EOFs @ EOFs.T ) # shape: ( nmodes, n_samples )
 
-    return PCs.T
+    PCs: np.ndarray = data @ EOFs.T @ np.linalg.inv( EOFs @ EOFs.T )
+
+    return PCs.T # shape: ( nmodes, n_samples )
 
 def main() -> None:
     # ###############
@@ -117,9 +126,10 @@ def main() -> None:
     w_verify : np.ndarray = w[:, 3000:].T
 
     # Apply EOF
+    n_components = 7
     w_EOFs, w_pcs = EOF(
         w_train - np.nanmean( w_train, axis=0, keepdims=True ),
-        n_components=7
+        n_components=n_components
     )
 
     lw_pcs: np.ndarray = normal_equation(
@@ -138,6 +148,14 @@ def main() -> None:
 
     lrf_lw_w: np.ndarray = lw_pcs @ w_pcs.T @ np.linalg.inv( w_pcs @ w_pcs.T )
     lrf_sw_w: np.ndarray = sw_pcs @ w_pcs.T @ np.linalg.inv( w_pcs @ w_pcs.T )
+
+    with h5py.File(
+        "/work/b11209013/2025_Research/MSI/Rad_Stuff/w_LRF.h5",
+        "w"
+    ) as f:
+        f.create_dataset( "EOF"   , data=w_EOFs )
+        f.create_dataset( "LRF_lw", data=lrf_lw_w )
+        f.create_dataset( "LRF_sw", data=lrf_sw_w )
 
     # ###########################
     # Verify the validity of LRF
@@ -173,11 +191,19 @@ def main() -> None:
         linewidths=1.25,
         levels=[ -0.05, -0.03, -0.02, 0.02, 0.03, 0.05 ],
     )
+    ct2 = plt.contour(
+        np.arange( w_verify.shape[0] ),
+        np.linspace( 1000, 100, 37 ),
+        w_verify.T,
+        colors="seagreen",
+        linewidths=1.25
+    )
     plt.minorticks_on()
     plt.xticks([])
     plt.yticks(np.linspace( 1000, 100, 10 ), fontsize=16)
     plt.ylim(1000, 100)
     plt.clabel(ct, colors="black", fontsize=8)
+    plt.clabel(ct2, colors="seagreen", fontsize=8)
     cbar = plt.colorbar(pcm, orientation="horizontal", aspect=50, shrink=0.8, pad=0.10)
     cbar.set_ticks( 
         [-0.1, -0.05, 0, 0.05, 0.1]
