@@ -2,6 +2,17 @@
 # This program is to write perform linear regression with ridge regression
 # ========================================================================
 
+import os
+
+# Set the number of threads (e.g., to 1 or 4)
+n_threads = "1"
+
+os.environ["OMP_NUM_THREADS"] = n_threads
+os.environ["MKL_NUM_THREADS"] = n_threads
+os.environ["OPENBLAS_NUM_THREADS"] = n_threads
+os.environ["VECLIB_MAXIMUM_THREADS"] = n_threads
+os.environ["NUMEXPR_NUM_THREADS"] = n_threads
+
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,10 +24,28 @@ def rmse(
         y_true: np.ndarray,
         y_pred: np.ndarray
 ) -> np.float64:
+
     if y_true.shape != y_pred.shape:
         raise ValueError("Shapes of true and predicted values must match")
 
-    return np.sqrt( np.mean( ( y_true - y_pred )**2 ) )
+    return np.sqrt( np.mean( ( y_true - y_pred )**2 ) ).max()
+
+def ridge_regression(
+        X: np.ndarray,
+        y: np.ndarray,
+        alpha: float
+) -> np.ndarray:
+    
+    assert X.ndim == 2, "X must be a 2D array"
+    assert y.ndim == 2, "y must be a 2D array"
+    assert X.shape[0] == y.shape[0], "Number of samples in X and y must match"
+
+    XtY: np.ndarray = X.T @ y
+    XtX: np.ndarray = X.T @ X + alpha * np.eye( X.shape[1] )
+
+    beta_ridge: np.ndarray = np.linalg.solve( XtX, XtY )
+
+    return beta_ridge
 
 def main() -> None:
     # -------------------------------
@@ -90,29 +119,36 @@ def main() -> None:
     # -------------------------------
     # Perform regression
     # -------------------------------
-    # define a rane of alphas for ridge regression
-    alphas: np.ndarray = np.logspace( -5, 5, 10 )
+    # define a range of alphas for ridge regression
+    alphas: np.ndarray = np.arange( 0.01, 0.02, 0.0001 )
 
-    # regresion lw and w
-    ridge_lw: RidgeCV = RidgeCV( alphas=alphas, scoring='neg_mean_squared_error', alpha_per_target=True )
-    ridge_lw.fit( training["w"], training["lw"] )
+    lw_rmse: list = []
+    sw_rmse: list = []
 
-    lw_lrf: np.ndarray = ridge_lw.coef_ # axis0: target, axis1: features
+    for alpha in alphas:
+        # Acquire regression coefficients
+        lw_lrf = ridge_regression( training["w"], training["lw"], alpha )
+        sw_lrf = ridge_regression( training["w"], training["sw"], alpha )
 
-    # regresion sw and w
-    ridge_sw: RidgeCV = RidgeCV( alphas=alphas, scoring='neg_mean_squared_error', alpha_per_target=True )
-    ridge_sw.fit( training["w"], training["sw"] )
+        # examine rmse
+        lw_pred_tmp = testing["w"] @ lw_lrf
+        sw_pred_tmp = testing["w"] @ sw_lrf
 
-    sw_lrf: np.ndarray = ridge_sw.coef_
+        lw_rmse.append( [ rmse( testing["lw"], lw_pred_tmp ) ] )
+        sw_rmse.append( [ rmse( testing["sw"], sw_pred_tmp ) ] )
+    # print alpha with lowest rmse
+    best_lw_alpha: float = alphas[ np.argmin( lw_rmse ) ]
+    best_sw_alpha: float = alphas[ np.argmin( sw_rmse ) ]
 
-    # -------------------------------
-    # Verify regression
-    # -------------------------------
-    lw_pred: np.ndarray = testing["w"] @ lw_lrf.T
-    sw_pred: np.ndarray = testing["w"] @ sw_lrf.T
+    lw_lrf: np.ndarray = ridge_regression( training["w"], training["lw"], best_lw_alpha )
+    sw_lrf: np.ndarray = ridge_regression( training["w"], training["sw"], best_sw_alpha )
 
-    lw_rmse: np.float64 = rmse( testing["lw"], lw_pred )
-    sw_rmse: np.float64 = rmse( testing["sw"], sw_pred )
+    # best prediction
+    lw_pred: np.ndarray = testing["w"] @ lw_lrf
+    sw_pred: np.ndarray = testing["w"] @ sw_lrf
+
+    print( f"Best LW alpha: {best_lw_alpha}, RMSE: {rmse( testing['lw'], lw_pred )}" )
+    print( f"Best SW alpha: {best_sw_alpha}, RMSE: {rmse( testing['sw'], sw_pred )}" )
 
     # -------------------------------
     # Plot verification results
@@ -164,7 +200,7 @@ def main() -> None:
     lw_pcm = axs[0].pcolormesh(
         np.linspace( 1000, 100, 37 ),
         np.linspace( 1000, 100, 37 ),
-        lw_lrf,
+        -lw_lrf.T,
         cmap="RdBu_r", norm=TwoSlopeNorm( vcenter=0.0 )
     )
     axs[0].plot( [1000, 100], [1000, 100], color="k", linestyle="--", linewidth=1 )
@@ -181,7 +217,7 @@ def main() -> None:
     sw_pcm = axs[1].pcolormesh(
         np.linspace( 1000, 100, 37 ),
         np.linspace( 1000, 100, 37 ),
-        sw_lrf,
+        -sw_lrf.T,
         cmap="RdBu_r", norm=TwoSlopeNorm( vcenter=0.0 )
     )
     axs[1].plot( [1000, 100], [1000, 100], color="k", linestyle="--", linewidth=1 )
@@ -197,6 +233,24 @@ def main() -> None:
     plt.tight_layout()
     plt.savefig( f"/home/b11209013/2025_Research/Obs/Figure/w_lrf.png", dpi=600 )
     plt.close( fig )
+
+    # -------------------------------
+    # Save regression results
+    # -------------------------------
+    OUTPUT_DIR: str = "/work/b11209013/2025_Research/MSI/Rad_Stuff/w_LRF.h5"
+
+    with h5py.File(
+        OUTPUT_DIR,
+        "w"
+    ) as f:
+        f.create_dataset(
+            "lw_lrf",
+            data=lw_lrf
+        )
+        f.create_dataset(
+            "sw_lrf",
+            data=sw_lrf
+        )
 
 if __name__ == "__main__":
     main()
